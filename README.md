@@ -7,6 +7,8 @@ question rather than just implement two textbook primitives: **when the
 downstream consumer is slow, does swapping in a lock-free queue actually
 help, and what does it cost?**
 
+![Backpressure comparison](docs/backpressure.png)
+
 ## TL;DR result
 
 Lock-free wins on raw uncontended throughput but **burns far more CPU
