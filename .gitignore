@@ -1,0 +1,8 @@
+build*/
+*.o
+*.obj
+*.csv
+compile_commands.json
+.cache/
+*.png
+!docs/*.png

@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        sanitizer: ["", "thread", "address+undefined"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          mkdir -p build-${{ matrix.sanitizer || 'plain' }}
+          cd build-${{ matrix.sanitizer || 'plain' }}
+          if [ -n "${{ matrix.sanitizer }}" ]; then
+            cmake .. -DCMAKE_BUILD_TYPE=Debug -DSANITIZE=${{ matrix.sanitizer }}
+          else
+            cmake .. -DCMAKE_BUILD_TYPE=Release
+          fi
+
+      - name: Build
+        run: cmake --build build-${{ matrix.sanitizer || 'plain' }} -j
+
+      - name: Test
+        working-directory: build-${{ matrix.sanitizer || 'plain' }}
+        run: ctest --output-on-failure

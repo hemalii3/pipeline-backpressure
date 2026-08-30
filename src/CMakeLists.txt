@@ -1,0 +1,7 @@
+add_executable(pipeline_demo_mutex pipeline_demo.cpp)
+target_compile_definitions(pipeline_demo_mutex PRIVATE QUEUE_MUTEX)
+target_link_libraries(pipeline_demo_mutex PRIVATE Threads::Threads)
+
+add_executable(pipeline_demo_lockfree pipeline_demo.cpp)
+target_compile_definitions(pipeline_demo_lockfree PRIVATE QUEUE_LOCKFREE)
+target_link_libraries(pipeline_demo_lockfree PRIVATE Threads::Threads)

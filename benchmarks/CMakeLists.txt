@@ -1,0 +1,7 @@
+add_executable(backpressure_bench_mutex backpressure_bench.cpp)
+target_compile_definitions(backpressure_bench_mutex PRIVATE QUEUE_MUTEX)
+target_link_libraries(backpressure_bench_mutex PRIVATE Threads::Threads)
+
+add_executable(backpressure_bench_lockfree backpressure_bench.cpp)
+target_compile_definitions(backpressure_bench_lockfree PRIVATE QUEUE_LOCKFREE)
+target_link_libraries(backpressure_bench_lockfree PRIVATE Threads::Threads)
