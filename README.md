@@ -9,19 +9,34 @@ help, and what does it cost?**
 
 ## TL;DR result
 
-Lock-free wins on raw uncontended throughput (~1.5-2.3x faster with no
-backpressure in local testing) but **burns a full CPU core spinning while
-"blocked"** under sustained backpressure — measured CPU time was ~1.0x
-wall-clock time for the lock-free queue vs. ~0.2x for the mutex queue
-under the same artificial writer delay, because the mutex version's
-blocked threads are actually asleep (OS-scheduled wakeup via
-`condition_variable`), while the lock-free version's blocked threads spin.
-Latency was also *higher* for lock-free under sustained backpressure
-(p99 ~7.2ms vs ~6.7ms in one test run) despite lock-free's lower
-uncontended latency — spinning steals CPU time from the very threads that
-need to run to drain the backlog. **The "lock-free is always faster"
-intuition doesn't hold once the system is actually backpressured**, which
-is the whole point of building both instead of just one.
+Lock-free wins on raw uncontended throughput but **burns far more CPU
+while "blocked"** under sustained backpressure. Measured on a 64-core
+node (exa03) with 20,000 records, queue capacity 32, and a 30us
+artificial writer delay:
+
+| Queue | Wall time | CPU time | CPU/wall ratio | p50 latency | p99 latency |
+|---|---|---|---|---|---|
+| Mutex (condvar) | 0.968s | 0.660s | **0.7x** | 6442.7us | 6502.3us |
+| Lock-free (spin) | 0.861s | 2.627s | **3.1x** | 5752.5us | 6082.8us |
+
+The mutex version's blocked threads are genuinely asleep (OS-scheduled
+wakeup via `condition_variable`), so CPU time stays below wall time. The
+lock-free version's blocked threads spin continuously while waiting —
+with three intermediate stages (Parser, Filter, Writer) all potentially
+spinning on their queues at once while the Writer is the bottleneck, CPU
+time balloons to over 3x wall-clock on a machine with enough cores to
+hide that cost from a naive throughput-only view. Lock-free does win on
+latency here (p99 ~6.08ms vs ~6.50ms) — but at roughly 4x the CPU cost to
+get there. **The "lock-free is always faster" intuition doesn't hold once
+the system is actually backpressured, and the real cost only shows up if
+you measure CPU time, not just wall-clock throughput** — which is the
+whole point of building and measuring both instead of just asserting one
+is better.
+
+Full test suite (13/13) passes clean under ThreadSanitizer
+(`-DSANITIZE=thread`) on exa03, including the SPSC lock-free stress test
+— validating the release/acquire memory ordering is actually correct on
+real multi-core hardware, not just "happens to work on x86."
 
 See `docs/backpressure.png` (generate with the commands below) for the
 occupancy and latency comparison plot.
@@ -82,9 +97,8 @@ Proper test setup, not just a manual smoke test:
   the test that actually validates the lock-free queue's memory ordering
   is correct, since a subtly-wrong `memory_order_relaxed` can pass every
   functional test on x86 (strong memory model masks a lot) and still be
-  a real bug on ARM or under compiler reordering. Both queue
-  implementations pass clean under TSan in local testing (no reported
-  races).
+  a real bug on ARM or under compiler reordering. Confirmed clean (13/13
+  tests passed, no TSan warnings) on a 64-core exa03 node.
 - **CI** (`.github/workflows/ci.yml`): builds and runs the full test
   suite three ways on every push — plain, `-DSANITIZE=thread`, and
   `-DSANITIZE=address+undefined`.
@@ -175,9 +189,11 @@ scripts/
   version would likely want exponential backoff or `_mm_pause()` on x86 to
   reduce power/cache-bus pressure while spinning — not implemented here
   since the point was to measure the basic tradeoff, not build a
-  production-grade primitive.
-- Benchmark numbers above are from local/interactive runs and will vary
-  by machine; re-run `backpressure_bench` on your own hardware before
-  quoting specific figures in an interview — the qualitative
-  finding (lock-free burns CPU under backpressure) is robust, the exact
-  ratios are not.
+  production-grade primitive. The measured 3.1x CPU/wall ratio on exa03
+  is itself a demonstration of exactly this cost.
+- The reported numbers are from one run on one machine (exa03, 64-core)
+  at one specific delay/capacity setting — re-run
+  `backpressure_bench` with a range of `writer_delay_us` and `capacity`
+  values before treating any single number as definitive; the
+  qualitative finding (lock-free burns meaningfully more CPU under
+  sustained backpressure) is the robust part, not the exact 3.1x figure.
