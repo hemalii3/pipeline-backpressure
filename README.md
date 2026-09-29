@@ -15,7 +15,7 @@ Lock-free wins on raw uncontended throughput but **burns far more CPU
 while "blocked"** under sustained backpressure. Measured on a 64-core
 node (exa03) with 20,000 records, queue capacity 32, and a 30us
 artificial writer delay:
-
+  
 | Queue | Wall time | CPU time | CPU/wall ratio | p50 latency | p99 latency |
 |---|---|---|---|---|---|
 | Mutex (condvar) | 0.968s | 0.660s | **0.7x** | 6442.7us | 6502.3us |
