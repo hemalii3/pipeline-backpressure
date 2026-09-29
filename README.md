@@ -9,7 +9,7 @@ help, and what does it cost?**
 
 ![Backpressure comparison](docs/backpressure.png)
 
-## result
+## result  
 
 Lock-free wins on raw uncontended throughput but **burns far more CPU
 while "blocked"** under sustained backpressure. Measured on a 64-core
